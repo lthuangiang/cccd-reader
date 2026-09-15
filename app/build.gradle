@@ -49,10 +49,13 @@ dependencies {
 
     // --- Đọc chip MRTD (BAC, đọc DataGroups, đọc SOD) theo chuẩn ICAO 9303 ---
     // JMRTD: implement giao thức BAC/PACE, parse LDS (Logical Data Structure)
-    implementation 'org.jmrtd:jmrtd:0.7.41'
+    // 0.7.18 là bản ổn định, được dùng rộng rãi (VD: app passport-reader mã nguồn mở của tananaev)
+    implementation('org.jmrtd:jmrtd:0.7.18') {
+        exclude group: 'org.bouncycastle'   // tránh đụng class với bcprov-jdk15to18 khai báo bên dưới
+    }
     // SCUBA: lớp giao tiếp smart card, có android-nfc adapter để map IsoDep -> CardService
-    implementation 'net.sf.scuba:scuba-sc-android:0.0.24'
-    implementation 'net.sf.scuba:scuba-smartcards:0.0.24'
+    implementation 'net.sf.scuba:scuba-sc-android:0.0.26'
+    // Không cần khai báo scuba-smartcards riêng - kéo về tự động qua jmrtd/scuba-sc-android
 
     // BouncyCastle: cần để parse ASN.1/CMS (SOD) và certificate X.509 (DS Cert)
     implementation 'org.bouncycastle:bcprov-jdk15to18:1.77'
