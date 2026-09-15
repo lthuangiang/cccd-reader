@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="16dp">
+
+    <Button
+        android:id="@+id/btnScanQr"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="1. Quét QR mặt trước CCCD" />
+
+    <TextView
+        android:id="@+id/tvQrResult"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:text="Chưa quét QR" />
+
+    <EditText
+        android:id="@+id/etExpiryDate"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:hint="Ngày hết hạn thẻ (ddMMyyyy, in mặt sau CCCD)"
+        android:inputType="number" />
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:text="2. Sau khi có đủ thông tin, chạm mặt sau điện thoại vào CCCD" />
+
+    <TextView
+        android:id="@+id/tvNfcStatus"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:text="Đang chờ..." />
+
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:layout_marginTop="16dp">
+
+        <TextView
+            android:id="@+id/tvDsCertResult"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textIsSelectable="true"
+            android:fontFamily="monospace"
+            android:textSize="12sp" />
+    </ScrollView>
+
+    <Button
+        android:id="@+id/btnCopyBase64"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:text="Copy DS Cert (Base64 DER) để gửi API"
+        android:enabled="false" />
+
+</LinearLayout>
