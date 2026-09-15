@@ -1,7 +1,14 @@
 package com.altisss.cccdreader.qr
 
+import android.Manifest
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.os.Bundle
+import android.view.Gravity
+import android.widget.FrameLayout
+import android.widget.TextView
+import android.widget.Toast
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageAnalysis
@@ -25,50 +32,113 @@ class QrScanActivity : AppCompatActivity() {
     private val cameraExecutor = Executors.newSingleThreadExecutor()
     private val barcodeScanner = BarcodeScanning.getClient()
     private var handled = false
+    private lateinit var previewView: PreviewView
+    private lateinit var tvDebug: TextView
+    private var framesProcessed = 0
+
+    private val requestPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) {
+            startCamera()
+        } else {
+            Toast.makeText(this, "Cần quyền Camera để quét QR. Vào Cài đặt > Ứng dụng > cấp quyền Camera.", Toast.LENGTH_LONG).show()
+            finish()
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        val previewView = PreviewView(this)
-        setContentView(previewView)
-        startCamera(previewView)
+
+        val root = FrameLayout(this)
+        previewView = PreviewView(this)
+        root.addView(previewView)
+
+        // Text debug nhỏ ở trên cùng để biết đang ở trạng thái nào - anh có thể xoá sau khi chạy ổn
+        tvDebug = TextView(this).apply {
+            setBackgroundColor(0x88000000.toInt())
+            setTextColor(0xFFFFFFFF.toInt())
+            text = "Đang khởi động camera..."
+            setPadding(16, 16, 16, 16)
+        }
+        root.addView(tvDebug, FrameLayout.LayoutParams(
+            FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.WRAP_CONTENT
+        ).apply { gravity = Gravity.TOP })
+
+        setContentView(root)
+
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
+            == PackageManager.PERMISSION_GRANTED) {
+            startCamera()
+        } else {
+            requestPermissionLauncher.launch(Manifest.permission.CAMERA)
+        }
     }
 
-    private fun startCamera(previewView: PreviewView) {
+    private fun startCamera() {
+        tvDebug.text = "Đang mở camera..."
         val providerFuture = ProcessCameraProvider.getInstance(this)
         providerFuture.addListener({
-            val provider = providerFuture.get()
+            try {
+                val provider = providerFuture.get()
 
-            val preview = Preview.Builder().build().also {
-                it.setSurfaceProvider(previewView.surfaceProvider)
-            }
-
-            val analysis = ImageAnalysis.Builder()
-                .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
-                .build()
-
-            analysis.setAnalyzer(cameraExecutor) { imageProxy ->
-                val mediaImage = imageProxy.image
-                if (mediaImage != null && !handled) {
-                    val image = InputImage.fromMediaImage(mediaImage, imageProxy.imageInfo.rotationDegrees)
-                    barcodeScanner.process(image)
-                        .addOnSuccessListener { barcodes -> onBarcodesDetected(barcodes) }
-                        .addOnCompleteListener { imageProxy.close() }
-                } else {
-                    imageProxy.close()
+                val preview = Preview.Builder().build().also {
+                    it.setSurfaceProvider(previewView.surfaceProvider)
                 }
-            }
 
-            provider.unbindAll()
-            provider.bindToLifecycle(
-                this, CameraSelector.DEFAULT_BACK_CAMERA, preview, analysis
-            )
+                val analysis = ImageAnalysis.Builder()
+                    .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+                    .build()
+
+                analysis.setAnalyzer(cameraExecutor) { imageProxy ->
+                    val mediaImage = imageProxy.image
+                    if (mediaImage != null && !handled) {
+                        val image = InputImage.fromMediaImage(mediaImage, imageProxy.imageInfo.rotationDegrees)
+                        barcodeScanner.process(image)
+                            .addOnSuccessListener { barcodes -> onBarcodesDetected(barcodes) }
+                            .addOnFailureListener { e ->
+                                runOnUiThread { tvDebug.text = "Lỗi ML Kit: ${e.message}" }
+                            }
+                            .addOnCompleteListener {
+                                framesProcessed++
+                                runOnUiThread {
+                                    if (!handled) tvDebug.text = "Đang quét... (frame #$framesProcessed) đưa QR vào giữa khung hình"
+                                }
+                                imageProxy.close()
+                            }
+                    } else {
+                        imageProxy.close()
+                    }
+                }
+
+                provider.unbindAll()
+                provider.bindToLifecycle(
+                    this, CameraSelector.DEFAULT_BACK_CAMERA, preview, analysis
+                )
+                tvDebug.text = "Đưa QR mặt trước CCCD vào khung hình"
+            } catch (e: Exception) {
+                tvDebug.text = "Lỗi mở camera: ${e.message}"
+                Toast.makeText(this, "Lỗi mở camera: ${e.message}", Toast.LENGTH_LONG).show()
+            }
         }, ContextCompat.getMainExecutor(this))
     }
 
     private fun onBarcodesDetected(barcodes: List<Barcode>) {
         if (handled) return
-        val raw = barcodes.firstOrNull { it.rawValue?.contains("|") == true }?.rawValue ?: return
-        val qrData = CccdQrData.parse(raw) ?: return
+        if (barcodes.isEmpty()) return
+
+        // Lấy barcode đầu tiên đọc được raw text, không lọc cứng theo "|" nữa -
+        // để lỡ định dạng QR thực tế khác giả định thì vẫn thấy được dữ liệu thô để debug.
+        val raw = barcodes.firstOrNull { !it.rawValue.isNullOrBlank() }?.rawValue ?: return
+
+        val qrData = CccdQrData.parse(raw)
+        if (qrData == null) {
+            // Quét được QR nhưng không đúng định dạng 7 trường kỳ vọng -> hiện raw để anh đối chiếu
+            runOnUiThread {
+                tvDebug.text = "Quét được QR nhưng sai định dạng kỳ vọng.\nRaw: $raw"
+            }
+            return
+        }
 
         handled = true
         val result = Intent().apply {
