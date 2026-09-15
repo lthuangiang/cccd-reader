@@ -5,6 +5,7 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import android.nfc.NfcAdapter
 import android.nfc.Tag
 import android.os.Bundle
@@ -16,6 +17,8 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import com.altisss.cccdreader.nfc.NfcCccdReader
 import com.altisss.cccdreader.qr.QrScanActivity
+import com.altisss.cccdreader.util.QrImageDecoder
+import kotlin.concurrent.thread
 
 class MainActivity : AppCompatActivity() {
 
@@ -31,14 +34,25 @@ class MainActivity : AppCompatActivity() {
     private lateinit var tvNfcStatus: TextView
     private lateinit var tvDsCertResult: TextView
     private lateinit var btnCopyBase64: Button
+    private lateinit var btnScanQr: Button
+    private lateinit var btnPickImage: Button
 
+    // Quét bằng camera live -> trả kết quả ngay khi tìm thấy QR hợp lệ
     private val qrLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         if (result.resultCode == RESULT_OK) {
             val data = result.data ?: return@registerForActivityResult
-            idNumber = data.getStringExtra(QrScanActivity.EXTRA_ID_NUMBER)
-            dobMrz = data.getStringExtra(QrScanActivity.EXTRA_DOB_MRZ)
-            val name = data.getStringExtra(QrScanActivity.EXTRA_FULL_NAME)
-            tvQrResult.text = "Số CCCD: $idNumber | Tên: $name"
+            applyQrResult(
+                id = data.getStringExtra(QrScanActivity.EXTRA_ID_NUMBER),
+                dob = data.getStringExtra(QrScanActivity.EXTRA_DOB_MRZ),
+                name = data.getStringExtra(QrScanActivity.EXTRA_FULL_NAME)
+            )
+        }
+    }
+
+    // Chọn ảnh từ thư viện -> quay lại màn hình chính ngay, xử lý ở đây với trạng thái loading/lỗi/kết quả
+    private val pickImageLauncher = registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
+        if (uri != null) {
+            processPickedImage(uri)
         }
     }
 
@@ -58,9 +72,15 @@ class MainActivity : AppCompatActivity() {
         tvNfcStatus = findViewById(R.id.tvNfcStatus)
         tvDsCertResult = findViewById(R.id.tvDsCertResult)
         btnCopyBase64 = findViewById(R.id.btnCopyBase64)
+        btnScanQr = findViewById(R.id.btnScanQr)
+        btnPickImage = findViewById(R.id.btnPickImage)
 
-        findViewById<Button>(R.id.btnScanQr).setOnClickListener {
+        btnScanQr.setOnClickListener {
             qrLauncher.launch(Intent(this, QrScanActivity::class.java))
+        }
+
+        btnPickImage.setOnClickListener {
+            pickImageLauncher.launch("image/*")
         }
 
         btnCopyBase64.setOnClickListener {
@@ -69,6 +89,47 @@ class MainActivity : AppCompatActivity() {
             cm.setPrimaryClip(ClipData.newPlainText("DS Cert Base64", text))
             Toast.makeText(this, "Đã copy DS Cert (base64)", Toast.LENGTH_SHORT).show()
         }
+    }
+
+    /** Chọn ảnh xong -> hiện loading ngay -> xử lý nền -> báo lỗi hoặc hiện dữ liệu, tất cả tại màn hình chính */
+    private fun processPickedImage(uri: Uri) {
+        setPickImageUiState(processing = true)
+        tvQrResult.text = "Đang xử lý ảnh..."
+
+        thread {
+            val result = QrImageDecoder.decodeCccdQrFromUri(contentResolver, uri)
+            runOnUiThread {
+                setPickImageUiState(processing = false)
+                when (result) {
+                    is QrImageDecoder.Result.Success -> {
+                        val q = result.qrData
+                        applyQrResult(id = q.idNumber, dob = q.dobForMrz(), name = q.fullName)
+                    }
+                    is QrImageDecoder.Result.NotFound -> {
+                        tvQrResult.text = if (result.rawTextIfAny != null) {
+                            "Đọc được mã nhưng sai định dạng CCCD kỳ vọng.\nRaw: ${result.rawTextIfAny}"
+                        } else {
+                            "Không tìm thấy QR trong ảnh này. Thử ảnh rõ nét hơn, đủ sáng, không bị loá."
+                        }
+                    }
+                    is QrImageDecoder.Result.Error -> {
+                        tvQrResult.text = "Lỗi xử lý ảnh: ${result.message}"
+                    }
+                }
+            }
+        }
+    }
+
+    private fun setPickImageUiState(processing: Boolean) {
+        btnPickImage.isEnabled = !processing
+        btnScanQr.isEnabled = !processing
+        btnPickImage.text = if (processing) "Đang xử lý..." else "Chọn ảnh CCCD từ thư viện"
+    }
+
+    private fun applyQrResult(id: String?, dob: String?, name: String?) {
+        idNumber = id
+        dobMrz = dob
+        tvQrResult.text = "Số CCCD: $id | Tên: $name"
     }
 
     override fun onResume() {
@@ -99,7 +160,7 @@ class MainActivity : AppCompatActivity() {
         val doeRaw = etExpiryDate.text.toString().trim()
 
         if (doc == null || dob == null) {
-            tvNfcStatus.text = "Chưa có dữ liệu QR. Vui lòng quét QR trước."
+            tvNfcStatus.text = "Chưa có dữ liệu QR. Vui lòng quét/chọn ảnh QR trước."
             return
         }
         if (doeRaw.length != 8) {
@@ -131,8 +192,6 @@ class MainActivity : AppCompatActivity() {
 
                 // TODO: Gọi API RAR/Bộ Công an tại đây, gửi result.dsCertBase64Der
                 // (và/hoặc result.sodRawBase64 nếu API yêu cầu verify full chain).
-                // Theo quy tắc bảo mật, việc gọi API thật cần anh tự thêm endpoint +
-                // xác nhận rõ ràng trước khi gửi dữ liệu định danh của khách hàng đi.
 
             } catch (e: Exception) {
                 runOnUiThread {

@@ -9,7 +9,14 @@
         android:id="@+id/btnScanQr"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="1. Quét QR mặt trước CCCD" />
+        android:text="1a. Quét QR bằng Camera" />
+
+    <Button
+        android:id="@+id/btnPickImage"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:text="1b. Chọn ảnh CCCD từ thư viện" />
 
     <TextView
         android:id="@+id/tvQrResult"
