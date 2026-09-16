@@ -10,10 +10,16 @@
     <uses-feature android:name="android.hardware.camera" android:required="true" />
 
     <application
+        android:name=".CccdReaderApp"
         android:allowBackup="false"
         android:label="CCCD Reader"
         android:theme="@style/Theme.CccdReader"
         android:usesCleartextTraffic="false">
+
+        <activity
+            android:name=".crash.CrashActivity"
+            android:exported="false"
+            android:theme="@style/Theme.CccdReader" />
 
         <activity
             android:name=".MainActivity"
