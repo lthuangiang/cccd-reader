@@ -102,8 +102,22 @@ class NfcCccdReader {
         }
     }
 
-    /** Tạo BAC key từ documentNumber (số CCCD), dob và doe theo format yyMMdd */
-    fun buildBacKey(documentNumber: String, dobYyMMdd: String, doeYyMMdd: String): BACKeySpec {
-        return BACKey(documentNumber, dobYyMMdd, doeYyMMdd)
+    /**
+     * Tạo BAC key từ cccdIdNumber (12 số in trên mặt trước CCCD), dob và doe theo format yyMMdd.
+     *
+     * QUAN TRỌNG: BAC document number theo MRZ (chuẩn TD1, ICAO 9303) chỉ có 9 ký tự,
+     * không phải nguyên 12 số CCCD. Đã verify thực tế trên MRZ mặt sau thẻ thật:
+     *   Số CCCD (mặt trước):        080087016029  (12 số)
+     *   MRZ document number (mặt sau): 087016029  (9 số - BỎ 3 SỐ ĐẦU của số CCCD)
+     * 3 số đầu của CCCD là mã tỉnh/mã dân số, không nằm trong document number field của MRZ.
+     *
+     * Lưu ý: quy tắc "bỏ 3 số đầu" này được xác nhận trên 1 thẻ mẫu thực tế - nên đối chiếu
+     * lại với vài thẻ khác (nhất là thẻ cấp ở tỉnh khác) để chắc chắn đây là quy tắc chung,
+     * trước khi dùng production.
+     */
+    fun buildBacKey(cccdIdNumber: String, dobYyMMdd: String, doeYyMMdd: String): BACKeySpec {
+        require(cccdIdNumber.length == 12) { "Số CCCD phải đủ 12 số, đang nhận: '$cccdIdNumber'" }
+        val mrzDocumentNumber = cccdIdNumber.substring(3) // bỏ 3 số đầu -> còn lại 9 số
+        return BACKey(mrzDocumentNumber, dobYyMMdd, doeYyMMdd)
     }
 }
