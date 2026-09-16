@@ -42,7 +42,6 @@ class CrashActivity : AppCompatActivity() {
         }
         val tvCrash = TextView(this).apply {
             text = crashText
-            textIsSelectable = true
             setTextIsSelectable(true)
             setPadding(8, 8, 8, 8)
         }
