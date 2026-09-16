@@ -5,6 +5,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Color
 import android.os.Bundle
+import android.util.Size
 import android.view.Gravity
 import android.widget.FrameLayout
 import android.widget.TextView
@@ -13,6 +14,8 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.Preview
+import androidx.camera.core.resolutionselector.ResolutionSelector
+import androidx.camera.core.resolutionselector.ResolutionStrategy
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.core.content.ContextCompat
@@ -24,8 +27,11 @@ import java.util.concurrent.Executors
 
 /**
  * Quét QR mặt trước CCCD bằng camera live (ML Kit phân tích từng frame).
- * Việc chọn ảnh có sẵn từ thư viện được xử lý riêng ở MainActivity (không qua màn hình này)
- * để người dùng thấy trạng thái loading/lỗi/kết quả ngay tại màn hình chính.
+ *
+ * QUAN TRỌNG: ép độ phân giải phân tích lên tối thiểu ~1920x1440 qua ResolutionSelector.
+ * Mặc định CameraX ImageAnalysis chọn độ phân giải khá thấp (thường quanh 640x480) nếu
+ * không cấu hình - đủ cho QR đơn giản nhưng KHÔNG đủ chi tiết cho QR dày đặc như trên CCCD
+ * (QR CCCD chứa nhiều dữ liệu -> nhiều module nhỏ -> cần độ phân giải cao hơn mới đọc được).
  */
 class QrScanActivity : AppCompatActivity() {
 
@@ -84,7 +90,18 @@ class QrScanActivity : AppCompatActivity() {
                     it.setSurfaceProvider(previewView.surfaceProvider)
                 }
 
+                // Ép độ phân giải cao hơn mặc định để đọc được QR dày đặc (nhiều module nhỏ)
+                val resolutionSelector = ResolutionSelector.Builder()
+                    .setResolutionStrategy(
+                        ResolutionStrategy(
+                            Size(1920, 1440),
+                            ResolutionStrategy.FALLBACK_RULE_CLOSEST_HIGHER_THEN_LOWER
+                        )
+                    )
+                    .build()
+
                 val analysis = ImageAnalysis.Builder()
+                    .setResolutionSelector(resolutionSelector)
                     .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
                     .build()
 
@@ -100,7 +117,7 @@ class QrScanActivity : AppCompatActivity() {
                             .addOnCompleteListener {
                                 framesProcessed++
                                 runOnUiThread {
-                                    if (!handled) tvDebug.text = "Đang quét... (frame #$framesProcessed) đưa QR vào giữa khung hình"
+                                    if (!handled) tvDebug.text = "Đang quét... (frame #$framesProcessed) đưa QR vào giữa khung hình, giữ cách thẻ khoảng 10-15cm"
                                 }
                                 imageProxy.close()
                             }
