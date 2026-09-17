@@ -176,7 +176,7 @@ class MainActivity : AppCompatActivity() {
             try {
                 val bacKey = reader.buildBacKey(doc, dob, doeMrz)
                 val result = reader.readDsCert(tag, bacKey)
-                lastDsCertBase64 = result.dsCertBase64Der
+                lastDsCertBase64 = result.dsCertBase64OfPem
 
                 runOnUiThread {
                     tvNfcStatus.text = "Đọc thành công."
@@ -190,12 +190,16 @@ class MainActivity : AppCompatActivity() {
                     btnCopyBase64.isEnabled = true
                 }
 
-                // TODO: Gọi API RAR/Bộ Công an tại đây, gửi result.dsCertBase64Der
+                // TODO: Gọi API RAR/Bộ Công an tại đây, gửi result.dsCertBase64OfPem
                 // (và/hoặc result.sodRawBase64 nếu API yêu cầu verify full chain).
 
-            } catch (e: Exception) {
+            } catch (t: Throwable) {
+                // Bắt cả Throwable, không chỉ Exception - các lỗi như NoSuchMethodError/
+                // NoClassDefFoundError (VD: do version BouncyCastle không khớp với JMRTD)
+                // là Error, không phải Exception, nếu chỉ catch Exception sẽ làm app crash
+                // thẳng thay vì hiện lỗi lên màn hình.
                 runOnUiThread {
-                    tvNfcStatus.text = "Lỗi đọc chip: ${e.message}"
+                    tvNfcStatus.text = "Lỗi đọc chip: ${t.javaClass.name} - ${t.message}"
                 }
             }
         }.start()
