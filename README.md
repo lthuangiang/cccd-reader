@@ -1,15 +1,33 @@
 # CCCD Reader (Android) — Đọc DS Cert từ chip CCCD qua NFC
 
-## Luồng hoạt động
-1. Quét QR mặt trước CCCD (ML Kit) → lấy **số CCCD** + **ngày sinh**.
-2. Người dùng nhập tay **ngày hết hạn thẻ** (in mặt sau CCCD) — QR không chứa trường này.
-3. Chạm mặt sau điện thoại vào chip CCCD → app thực hiện **BAC** (Basic Access Control)
-   để mở khóa chip, dùng thư viện **JMRTD** (chuẩn ICAO 9303, dùng chung cho hộ chiếu
-   điện tử và CCCD gắn chip).
-4. Đọc **EF.SOD**, tách **DS Cert (X.509)** ra, xuất dạng Base64 DER / PEM.
-5. `dsCertBase64Der` là chuỗi cần gửi lên endpoint xác thực của RAR/Bộ Công an —
-   phần gọi API thật được để dạng `TODO` trong `MainActivity.kt`, anh tự bổ sung
-   endpoint + auth theo tài liệu tích hợp mà RAR cung cấp.
+## Luồng hoạt động (tóm tắt)
+
+**QR → BAC key → chạm NFC → mở khóa chip (doBAC) → đọc bytes thô EF.SOD → JMRTD parse ra DS Cert → xuất Base64 → gửi API cho RAR**
+
+Chi tiết từng bước:
+
+1. **Quét QR mặt trước CCCD** (ML Kit) → lấy **số CCCD (12 số)** + **ngày sinh**.
+   Người dùng nhập tay **ngày hết hạn thẻ** (in mặt sau) — QR không chứa trường này.
+
+2. **Dựng BAC key** từ 3 thành phần theo chuẩn MRZ (ICAO 9303):
+   document number + ngày sinh + ngày hết hạn (`buildBacKey()` trong `NfcCccdReader.kt`).
+   Lưu ý document number của MRZ chỉ lấy **9 số** (bỏ 3 số đầu của số CCCD 12 số).
+
+3. **Chạm mặt sau điện thoại vào chip CCCD** → mở kết nối `IsoDep`, khởi tạo
+   `PassportService` (JMRTD), rồi gọi **`service.doBAC(bacKey)`** để **mở khóa chip**.
+
+4. **Đọc bytes thô của EF.SOD**: `service.getInputStream(PassportService.EF_SOD).readBytes()`
+   — lấy nguyên khối byte của Document Security Object trực tiếp từ chip.
+
+5. **JMRTD parse SOD → tách DS Cert**: `SODFile(sodBytes).docSigningCertificate`
+   trả về **DS Cert (Document Signer Certificate, X.509)**.
+
+6. **Xuất Base64**: DS Cert được encode ra `dsCertBase64Der` (raw DER, base64) — kèm
+   thêm bản PEM và Base64 của SOD gốc phòng khi RAR cần verify full chain.
+
+7. **Gửi API cho RAR**: `dsCertBase64Der` là chuỗi cần gửi lên endpoint xác thực của
+   RAR/Bộ Công an. Phần gọi API thật đang để dạng `TODO` trong `MainActivity.kt`, anh
+   tự bổ sung endpoint + auth theo tài liệu tích hợp mà RAR cung cấp.
 
 ## Trước khi build, anh cần tự kiểm tra lại các điểm sau
 
