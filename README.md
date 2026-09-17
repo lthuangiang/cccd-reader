@@ -2,7 +2,7 @@
 
 ## Luồng hoạt động (tóm tắt)
 
-**QR → BAC key → chạm NFC → mở khóa chip (doBAC) → đọc bytes thô EF.SOD → JMRTD parse ra DS Cert → xuất Base64 → gửi API cho RAR**
+**QR → BAC key → chạm NFC → mở khóa chip (doBAC) → đọc bytes thô EF.SOD → JMRTD parse ra DS Cert → xuất Base64 → gửi API cho server xác thực**
 
 Chi tiết từng bước:
 
@@ -23,11 +23,11 @@ Chi tiết từng bước:
    trả về **DS Cert (Document Signer Certificate, X.509)**.
 
 6. **Xuất Base64**: DS Cert được encode ra `dsCertBase64Der` (raw DER, base64) — kèm
-   thêm bản PEM và Base64 của SOD gốc phòng khi RAR cần verify full chain.
+   thêm bản PEM và Base64 của SOD gốc phòng khi server cần verify full chain.
 
-7. **Gửi API cho RAR**: `dsCertBase64Der` là chuỗi cần gửi lên endpoint xác thực của
-   RAR/Bộ Công an. Phần gọi API thật đang để dạng `TODO` trong `MainActivity.kt`, anh
-   tự bổ sung endpoint + auth theo tài liệu tích hợp mà RAR cung cấp.
+7. **Gửi API cho server xác thực**: `dsCertBase64Der` là chuỗi cần gửi lên endpoint
+   xác thực. Phần gọi API thật đang để dạng `TODO` trong `MainActivity.kt`, anh tự bổ
+   sung endpoint + auth theo tài liệu tích hợp mà bên cung cấp API cấp.
 
 ## Trước khi build, anh cần tự kiểm tra lại các điểm sau
 
@@ -46,14 +46,14 @@ lại với thẻ thật trước khi đưa vào production:
    `PassportService`, `SODFile`, `BACKey` với source thực tế tại
    https://github.com/jmrtd/jmrtd trước khi build release.
 
-## Bảo mật khi tích hợp với RAR
+## Bảo mật khi tích hợp với server xác thực
 
 - Dữ liệu đọc được (DS Cert, SOD, tên trên chip) là **dữ liệu định danh cá nhân** —
   đảm bảo kết nối HTTPS khi gửi lên API, không log ra file/analytics của bên thứ 3.
 - Không lưu BAC key material (số CCCD + ngày sinh + ngày hết hạn) lâu hơn mức cần thiết
   cho phiên đọc.
 - Nếu app dùng cho khách hàng mở tài khoản chứng khoán, cần rà lại với bộ phận pháp chế/
-  compliance của ALTISSS về việc thu thập, lưu trữ dữ liệu định danh theo Nghị định
+  compliance về việc thu thập, lưu trữ dữ liệu định danh theo Nghị định
   13/2023/NĐ-CP (bảo vệ dữ liệu cá nhân) trước khi go-live.
 
 ## Build local (Android Studio)
