@@ -19,15 +19,6 @@ import java.security.cert.X509Certificate
  *   3. Đọc EF.SOD (Document Security Object)
  *   4. Tách DS Cert (Document Signer Certificate, X.509) từ SOD
  *
- * QUAN TRỌNG - những điểm anh cần tự verify với chip CCCD thật trước khi dùng production:
- *   - documentNumber dùng cho BAC: cần xác nhận CCCD VN dùng đúng số CCCD 12 số hay
- *     một dạng rút gọn/kèm check digit khác trong MRZ nội bộ chip. Một số triển khai
- *     eKYC VN có thể cần đệm số 0 hoặc cắt chuỗi theo cách khác.
- *   - API chính xác của JMRTD có thể lệch nhẹ theo version (0.7.41 dùng trong build.gradle) -
- *     nên build thử và đối chiếu javadoc/README của org.jmrtd trước khi build:
- *     https://github.com/jmrtd/jmrtd
- *   - Với thẻ CCCD, một số triển khai thực tế dùng PACE thay vì BAC tùy version chip -
- *     nếu doBAC() thất bại liên tục, cần thử luồng PACE (JMRTD có hỗ trợ doPACE()).
  */
 class NfcCccdReader {
 

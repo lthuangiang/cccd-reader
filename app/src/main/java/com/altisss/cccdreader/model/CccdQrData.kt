@@ -12,12 +12,6 @@ package com.altisss.cccdreader.model
  *   [5] Nơi thường trú
  *   [6] Ngày cấp thẻ (ddMMyyyy)
  *
- * LƯU Ý QUAN TRỌNG:
- * - QR KHÔNG chứa "ngày hết hạn" của thẻ, trong khi BAC key theo chuẩn ICAO 9303
- *   cần đủ 3 thành phần: document number + date of birth + date of expiry.
- * - Nên cho user nhập tay ngày hết hạn (in trên mặt sau CCCD), hoặc đọc qua OCR MRZ
- *   mặt sau nếu muốn tự động hoàn toàn. Anh cần verify lại format thực tế trên thẻ
- *   thật trước khi dùng production, vì Bộ Công an có thể điều chỉnh định dạng QR.
  */
 data class CccdQrData(
     val idNumber: String,
